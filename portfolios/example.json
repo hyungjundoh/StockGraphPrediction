@@ -1,0 +1,13 @@
+{
+  "name": "example",
+  "base_currency": "USD",
+  "as_of": "2025-01-01",
+  "broker": "Example Broker",
+  "notes": "Sample portfolio. Safe to commit. Copy to main.json (gitignored) and fill with real holdings.",
+  "positions": [
+    { "ticker": "AAPL", "name": "Apple Inc",            "shares": 10, "kind": "stock", "currency": "USD", "sector": "Technology" },
+    { "ticker": "JNJ",  "name": "Johnson & Johnson",    "shares":  8, "kind": "stock", "currency": "USD", "sector": "Healthcare" },
+    { "ticker": "VOO",  "name": "Vanguard S&P 500 ETF", "shares":  5, "kind": "etf",   "currency": "USD", "underlying_index": "S&P 500" },
+    { "ticker": "USD_CASH", "name": "Cash", "amount": 1000.00, "kind": "cash", "currency": "USD" }
+  ]
+}
