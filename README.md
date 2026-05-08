@@ -1,181 +1,149 @@
-# Stock Price Prediction Using Economic Indicators
+# StockGraphPrediction
 
-## Table of Contents
-- [Introduction](#introduction)
-- [Objectives](#objectives)
-- [Pending Indicators](#pending-indicators)
-- [Regression Models](#regression-models)
-- [Challenges](#challenges)
-- [Critical Considerations](#critical-considerations)
-- [Additional References](#additional-references)
+Two related workstreams live in this repo:
 
----
+1. **Economic-indicator regression pipeline** *(original)* — scrape macro
+   indicators and sector prices, format them into aligned panels, and fit
+   regression / time-series / ML models to study how indicators move
+   sector-wise stock prices. Mostly Python (scraping, formatting) + R
+   (analysis).
+2. **Portfolio risk dashboard** *(new)* — FastAPI backend + React/Vite
+   dashboard built on top of a deterministic `risk/` package (VaR, CVaR,
+   factor exposures, historical stress tests). Optional Claude-powered
+   scenario generation and prose risk briefings, gated behind an opt-in
+   `ENABLE_LLM` env flag. See **[README-RISK.md](./README-RISK.md)** for
+   full details.
 
-## Introduction
-
-Understanding the intricate relationship between economic indicators and sector-wise stock movements is pivotal for accurate financial forecasting. This project aims to analyze how various economic indicators influence stock prices across different sectors and predict the impact of upcoming economic announcements on these prices. Additionally, the project explores graph-based prediction methods to enhance the accuracy and robustness of these forecasts.
-
----
-
-## Objectives
-
-1. **Correlation Analysis**
-   - **Goal:** Understand how economic indicators correlate with sector-wise stock movements.
-   
-2. **Predictive Modeling**
-   - **Goal:** Predict how upcoming economic announcements (e.g., CPI or interest rate changes) affect stock prices within each sector.
-   
-3. **Graph-Based Prediction**
-   - **Goal:** Implement graph-based methodologies to capture complex relationships between sectors and economic indicators for improved prediction accuracy.
+The two pieces share the repo but not state — you can use either independently.
 
 ---
 
-## Pending Indicators
+## Repo layout
 
-The following economic indicators are yet to be processed and integrated into the analysis:
+```
+analysis/             R analysis scripts (regression, stepwise, plots)
+data/
+  raw/                scraped CSVs, untouched
+  processed/          aligned, joined panels
+  formatted/          model-ready inputs
+  stock_data/         per-ticker price files
+drivers/              chromedriver binaries used by the scrapers
+plots/                generated figures
+scripts/
+  scrap_data/         scrapers for individual indicators
+  format_data/        cleaning / alignment passes
+  refine_data/        post-processing
+  plot/               plot-generation helpers
+  stock_data/         price downloaders
+  dev.sh / dev.bat    risk-dashboard dev launcher (LLM off by default)
+tickers.txt           tickers consumed by stock_data scripts
+main.py               entry point for the indicator pipeline
+requirements.txt      Python deps for the indicator pipeline
 
-1. **신규 실업수당청구건수 (New Jobless Claims)**
-2. **S&P 글로벌 합성 PMI (S&P Global Composite PMI)**
-3. **근원 PCE 가격지수 (Core PCE Price Index)**
-4. **EIA 원유재고 (EIA Crude Oil Inventories)**
-5. **신규주택판매 (New Home Sales)**
-6. **컨퍼런스보드 소비자신뢰지수 (Conference Board Consumer Confidence Index)**
-7. **미국 국채경매 (U.S. Treasury Auctions)**
-8. **기존주택판매 (Existing Home Sales)**
-9. **PPI 상승률 (PPI Inflation Rate)**
-
----
-
-## Regression Models
-
-### Multiple Linear Regression
-
-- **Purpose:** To model the linear relationship between multiple economic indicators and sector-wise stock prices.
-- **Implementation:**
-  - **Dependent Variable:** Sector-wise Closing Prices
-  - **Independent Variables:** Economic Indicators (CPI, GDP, LeadingIndex, Unemployment.Rate, Interest_rate)
-
-### Regularized Regression (Ridge, Lasso)
-
-- **Purpose:** To handle multicollinearity and perform feature selection.
-- **Implementation:**
-  - Apply Ridge Regression to penalize large coefficients.
-  - Apply Lasso Regression for both regularization and variable selection.
-
-### Time-Series Models (ARIMA, VAR)
-
-- **Purpose:** To capture temporal dependencies and trends in stock prices and economic indicators.
-- **Implementation:**
-  - Use ARIMA for individual time-series forecasting.
-  - Use VAR for modeling interdependencies between multiple time-series.
-
-### Machine Learning Models (Random Forest, Gradient Boosting)
-
-- **Purpose:** To capture non-linear relationships and interactions between variables.
-- **Implementation:**
-  - Train Random Forest and Gradient Boosting models on the dataset.
-  - Compare performance with regression models.
-
-### Stepwise Regression with `olsrr`
-
-- **Purpose:** To identify significant predictors through automated feature selection.
-- **Implementation:**
-  - Utilize `ols_step_both_p` from the `olsrr` package for stepwise selection.
+risk/                 numerical risk module (no LLM, no I/O)
+llm/                  Claude wrapper — only writes scenarios + briefings
+api/                  FastAPI app exposing risk/ + llm/ as JSON
+web/                  Vite + React + TS + Tailwind dashboard
+portfolios/           personal portfolio convention (main.json gitignored)
+main_risk.py          synthetic-data smoke test for the risk module
+requirements-risk.txt Python deps for the risk dashboard
+README-RISK.md        full docs for the risk dashboard
+```
 
 ---
 
-## Challenges
+## Workstream 1 — Indicator regression pipeline
 
-1. **Influence of Unpredictable Factors**
-   - **Issue:** Stock price movements are influenced by factors beyond economic indicators, such as geopolitical events, company-specific news, and market sentiment.
-   
-2. **Data Quality and Availability**
-   - **Issue:** Missing data, inconsistent data sources, and varying data frequencies can hinder accurate analysis.
-   
-3. **Model Overfitting**
-   - **Issue:** Complex models may capture noise instead of the underlying relationship, leading to poor generalization on unseen data.
-   
-4. **Temporal Dependencies**
-   - **Issue:** Economic indicators and stock prices exhibit temporal dependencies that need to be appropriately modeled.
+### What it does
+Pulls economic indicators and sector closing prices, lines them up by date,
+and fits regression / time-series models to estimate how indicator changes
+propagate into sector returns.
 
----
+### Indicators currently or partially integrated
+CPI, GDP, Leading Index, Unemployment Rate, Interest Rate.
 
-## Critical Considerations
+### Indicators on the to-do list
+신규 실업수당청구건수 (New Jobless Claims) · S&P 글로벌 합성 PMI · 근원 PCE
+가격지수 (Core PCE) · EIA 원유재고 · 신규주택판매 · 컨퍼런스보드 소비자
+신뢰지수 · 미국 국채경매 · 기존주택판매 · PPI 상승률.
 
-1. **Excluding the Effects of Unpredictable Factors**
-   - **Strategy:**
-     - Incorporate control variables that capture market sentiment or geopolitical events.
-     - Use dummy variables to represent significant events.
-     - Perform residual analysis to identify patterns indicating omitted variable effects.
-   
-2. **Incorporating Unpredictable Factors to Improve Prediction Accuracy**
-   - **Strategy:**
-     - Utilize Principal Component Analysis (PCA) to reduce dimensionality and capture major variance components.
-     - Implement mixed models to account for both fixed effects (economic indicators) and random effects (unpredictable factors).
-     - Explore hybrid models combining statistical and machine learning approaches.
-     - Use ensemble methods to aggregate predictions from multiple models for robustness.
+### Models in play
+- **Multiple linear regression** — baseline; dependent var = sector close,
+  independent vars = indicator panel.
+- **Ridge / Lasso** — handle multicollinearity, do feature selection.
+- **ARIMA / VAR** — capture temporal structure and cross-series dynamics.
+- **Random Forest / Gradient Boosting** — non-linear interactions.
+- **Stepwise regression** — `olsrr::ols_step_both_p` for automated
+  significance-based selection.
 
-3. **Data Type and Quality Assurance**
-   - Ensure all relevant columns are numeric.
-   - Handle missing values through imputation or exclusion.
-   - Verify consistency in date formats and align temporal ranges across datasets.
+### Install + run
+```bash
+pip install -r requirements.txt
+python main.py            # see main.py for the run_* steps
+```
 
-4. **Feature Engineering**
-   - Create lagged features and moving averages to capture delayed effects.
-   - Develop graph-based features to represent relationships between sectors and indicators.
+The R analysis scripts live under `analysis/R/`. They expect the panels
+written by `scripts/format_data/`.
 
-5. **Model Evaluation**
-   - Use appropriate metrics such as RMSE, MAE, and R-squared.
-   - Validate models using train-test splits that respect temporal order to prevent look-ahead bias.
-
----
-
-## Additional References
-
-### Books and Articles
-
-1. **"Econometric Analysis" by William H. Greene**
-   - Comprehensive coverage of econometric models and techniques.
-   
-2. **"Introduction to Time Series and Forecasting" by Peter J. Brockwell and Richard A. Davis**
-   - In-depth exploration of time-series analysis methods.
-   
-3. **"Applied Predictive Modeling" by Max Kuhn and Kjell Johnson**
-   - Practical guide to building predictive models using R.
-   
-4. **Research Papers on Graph Neural Networks**
-   - Explore recent advancements in GNNs for financial predictions.
-
-### Online Tutorials and Courses
-
-1. **Coursera**
-   - Courses on financial modeling, machine learning, and time-series analysis.
-   
-2. **edX**
-   - Offers courses related to econometrics and data science.
-   
-3. **Kaggle**
-   - Participate in financial forecasting competitions and explore related notebooks.
-
-### R Packages Documentation
-
-1. **`olsrr`**
-   - [Documentation](https://www.rdocumentation.org/packages/olsrr/versions/4.2.0)
-   
-2. **`corrplot`**
-   - [Documentation](https://www.rdocumentation.org/packages/corrplot/versions/0.92)
-   
-3. **`igraph`**
-   - [Documentation](https://www.rdocumentation.org/packages/igraph/versions/1.2.6)
-   
-4. **`ggraph`**
-   - [Documentation](https://www.rdocumentation.org/packages/ggraph/versions/2.0.7)
+### Known caveats
+- **Confounders**: macro releases never explain everything — geopolitics,
+  earnings, sentiment all leak into prices. Treat R² with appropriate
+  skepticism.
+- **Data quality**: alignment of release dates vs. trading days, holiday
+  gaps, revisions to historical indicator series.
+- **Look-ahead leakage**: only validate with time-respecting splits.
+- **Overfitting**: the more flexible the model, the harder this bites —
+  always compare against a stupid baseline.
 
 ---
 
-## Conclusion
+## Workstream 2 — Risk dashboard
 
-This project aims to bridge the gap between economic indicators and sector-wise stock movements through robust regression models and advanced graph-based prediction techniques. By addressing the inherent challenges and incorporating critical considerations, the project seeks to enhance the accuracy and reliability of stock price predictions amidst a landscape of unpredictable influencing factors.
+A local-only single-user analytical tool. The deterministic risk pipeline
+(overview metrics, factor exposures, historical stress tests) always works.
+LLM features (scenario generator, prose briefing) are **opt-in**: they only
+appear when the backend is started with `ENABLE_LLM=true` and
+`ANTHROPIC_API_KEY` set.
+
+```bash
+pip install -r requirements-risk.txt
+cd web && npm install && cd ..
+
+# numeric-only mode (default)
+./scripts/dev.sh
+
+# with LLM features on
+ENABLE_LLM=true ANTHROPIC_API_KEY=sk-... ./scripts/dev.sh
+```
+
+`/capabilities` reports `{llm_enabled: bool}` so the frontend can hide LLM
+UI when disabled. `/llm/*` endpoints return 404 (not 503) when off.
+
+Full docs, API surface, curl examples, and architecture notes:
+**[README-RISK.md](./README-RISK.md)**.
 
 ---
 
+## Portfolios
+
+`portfolios/` holds a small personal-portfolio convention used by the risk
+dashboard:
+
+- `example.json` — committed schema reference (sanitized).
+- `main.json` — your live holdings. **Gitignored.** Never commit.
+- `history/` — append-only timestamped snapshots. Gitignored.
+- `snapshot.sh` / `diff.sh` — copy current state to history, diff against
+  the latest snapshot.
+
+```bash
+./portfolios/snapshot.sh    # record after each rebalance
+./portfolios/diff.sh        # see what changed since last snapshot
+```
+
+---
+
+## License / scope
+
+Single-user analytical / research code. Not investment advice. Risk models
+fail in regime changes; regression coefficients drift; LLM-generated text
+is not financial guidance.
